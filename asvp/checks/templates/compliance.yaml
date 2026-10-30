@@ -1,0 +1,66 @@
+# Compliance domain (PRD §5.2) — every check stores an evidence artifact:
+# control id, timestamp, target service+version, redacted request/response
+# excerpt, verdict.
+- id: CMP-PCI-TLS-001
+  name: TLS enforcement on API endpoint
+  domain: compliance
+  default_severity: high
+  destructiveness: safe
+  executor: tls_enforcement
+  description: >
+    Verifies the target is served over TLS and plain-HTTP access is not
+    accepted for API traffic (PCI-DSS v4.0 Req 4: protect cardholder data
+    in transit).
+  remediation: >
+    Terminate TLS at the gateway with a TLS 1.2+ floor; redirect or reject
+    plaintext HTTP.
+  compliance_mappings: ["PCI-DSS-4.0:4.2.1"]
+  applies: { once_per_service: true }
+
+- id: CMP-PCI-AUTH-001
+  name: Access control verification on sensitive endpoints
+  domain: compliance
+  default_severity: high
+  destructiveness: safe
+  executor: auth_missing_token
+  description: >
+    PCI-DSS Req 7/8 evidence variant of the missing-token probe, scoped to
+    endpoints classified as handling sensitive data. Produces an evidence
+    artifact per execution.
+  remediation: >
+    Enforce authenticated, role-scoped access on all endpoints that read or
+    mutate cardholder/PII data.
+  compliance_mappings: ["PCI-DSS-4.0:7.2", "PCI-DSS-4.0:8.3"]
+  applies: { sensitive_only: true }
+
+- id: CMP-GDPR-PII-001
+  name: PII exposure in API responses
+  domain: compliance
+  default_severity: high
+  destructiveness: safe
+  executor: pii_exposure
+  description: >
+    Matches response bodies against the data-classification dictionary
+    (emails, PAN-like numbers, phone numbers, national ids) and flags PII
+    returned by endpoints not declared PII-bearing.
+  remediation: >
+    Minimize response payloads (GDPR data minimisation); mask or tokenize
+    identifiers; declare intentional PII fields in the service registry.
+  compliance_mappings: ["GDPR:Art.5(1)(c)", "GDPR:Art.32"]
+  applies: { methods: ["GET"] }
+
+- id: CMP-RBI-RES-001
+  name: Data-residency response header assertion
+  domain: compliance
+  default_severity: medium
+  destructiveness: safe
+  executor: residency_header
+  description: >
+    Asserts the mandated data-residency header (X-Data-Region) is present
+    and within the approved region set, per RBI data-localisation posture.
+  remediation: >
+    Configure the gateway to stamp X-Data-Region from deployment metadata;
+    alert if region is outside the approved set.
+  compliance_mappings: ["RBI:DataLocalisation-2018"]
+  applies: { once_per_service: true }
+  params: { allowed_regions: ["in-south-1", "in-west-1"] }

@@ -1,0 +1,42 @@
+# Default gating policy (FR-GTE-1). Versioned in Git; changes only via PR
+# with required security-engineer review (FR-GOV-4).
+version: 1
+name: default
+rules:
+  - id: block-new-critical
+    description: Any new Critical finding (vs baseline) blocks every profile.
+    profiles: [pr, qa, preprod]
+    severity_at_least: critical
+    max_new: 0
+    action: block
+
+  - id: block-new-high-preprod
+    description: New High findings block release-candidate promotion.
+    profiles: [preprod]
+    severity_at_least: high
+    max_new: 0
+    action: block
+
+  - id: warn-new-high-early
+    description: New High findings warn at PR/QA stage.
+    profiles: [pr, qa]
+    severity_at_least: high
+    max_new: 0
+    action: warn
+
+  - id: warn-new-medium
+    description: More than 3 new Medium findings warns everywhere.
+    profiles: [pr, qa, preprod]
+    severity_at_least: medium
+    max_new: 3
+    action: warn
+
+  - id: tier1-authz-coverage
+    description: >
+      Coverage-aware gating (FR-GTE-7): Tier-1 services may not promote to
+      pre-production with an authz coverage gap (unfulfilled test-identity
+      contract).
+    profiles: [preprod]
+    tiers: [tier1]
+    block_on_coverage_gap: true
+    action: block

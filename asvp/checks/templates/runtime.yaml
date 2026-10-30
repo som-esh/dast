@@ -1,0 +1,48 @@
+# Pre-production runtime weakness domain (PRD §5.4).
+# Boundary rule: behavior observable by exercising the API in non-prod only.
+- id: RTW-RACE-001
+  name: Race condition on state-changing endpoint
+  domain: runtime
+  default_severity: high
+  destructiveness: aggressive
+  executor: race_condition_probe
+  description: >
+    Fires parallel duplicate submissions at a state-changing endpoint; if
+    both are accepted where one mutation is expected (double-spend class),
+    the endpoint lacks concurrency control.
+  remediation: >
+    Guard the critical section with idempotency keys, unique constraints, or
+    optimistic locking; reconcile balances transactionally.
+  applies: { state_changing_only: true, requires_body: true }
+  params: { parallelism: 4 }
+
+- id: RTW-IDEM-001
+  name: Idempotency-key enforcement
+  domain: runtime
+  default_severity: medium
+  destructiveness: mutating
+  executor: idempotency_probe
+  description: >
+    Replays the same request with an identical Idempotency-Key; two distinct
+    resource creations indicate the declared idempotency contract is not
+    enforced.
+  remediation: >
+    Persist idempotency keys with the first response; replay the stored
+    response for duplicates within the retention window.
+  applies: { state_changing_only: true, requires_body: true }
+
+- id: RTW-BURST-001
+  name: Degradation pattern under bounded burst
+  domain: runtime
+  default_severity: medium
+  destructiveness: aggressive
+  executor: bounded_burst_probe
+  description: >
+    Sends a bounded burst (not a load test) and observes the degradation
+    pattern: 5xx errors or unbounded latency growth instead of graceful
+    throttling indicates resource-exhaustion weakness.
+  remediation: >
+    Configure connection pools, timeouts, and load-shedding (429/503 +
+    Retry-After) ahead of saturation.
+  applies: { methods: ["GET"], once_per_service: true }
+  params: { burst: 20 }

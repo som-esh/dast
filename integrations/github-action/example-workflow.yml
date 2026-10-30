@@ -1,0 +1,37 @@
+# Example consumer workflow showing the three stage profiles (FR-GTE-4).
+name: API Security (ASVP)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  asvp-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./integrations/github-action
+        with:
+          asvp-url: ${{ vars.ASVP_URL }}
+          token: ${{ secrets.ASVP_TOKEN }}
+          service: payments-api
+          environment: dev
+          profile: pr            # changed-endpoint scope, safe mode
+          mode: safe
+          changed-endpoints: ${{ steps.diff.outputs.endpoints }}
+
+  asvp-qa:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./integrations/github-action
+        with:
+          asvp-url: ${{ vars.ASVP_URL }}
+          token: ${{ secrets.ASVP_TOKEN }}
+          service: payments-api
+          environment: qa
+          profile: qa            # full suite, safe mode
+          mode: safe

@@ -1,0 +1,69 @@
+# First-party ASVP GitHub Action (FR-GTE-3).
+# Requests a scan, awaits the verdict (poll, AR-2), annotates the PR with a
+# findings summary and deep links, and sets the job status per the gate
+# verdict and the service's policy mode.
+name: "ASVP API Security Gate"
+description: "Request an ASVP scan, await the verdict, and gate the pipeline."
+author: "Platform Engineering / DevSecOps"
+
+inputs:
+  asvp-url:
+    description: "Base URL of the ASVP control-plane API."
+    required: true
+  token:
+    description: "ASVP bearer token (from CI secrets)."
+    required: true
+  service:
+    description: "Onboarded service name."
+    required: true
+  environment:
+    description: "Target non-production environment."
+    required: true
+    default: "dev"
+  profile:
+    description: "Pipeline stage profile: pr | qa | preprod."
+    required: true
+    default: "pr"
+  mode:
+    description: "Scan mode: safe | full."
+    required: false
+    default: "safe"
+  changed-endpoints:
+    description: "Comma-separated 'METHOD /path' list for changed-endpoint scoping (PR profile)."
+    required: false
+    default: ""
+  target-url-override:
+    description: "Ephemeral per-PR preview environment URL (FR-EXE-7)."
+    required: false
+    default: ""
+  timeout-seconds:
+    description: "Max seconds to await the verdict."
+    required: false
+    default: "600"
+
+outputs:
+  verdict:
+    description: "pass | warn | block"
+    value: ${{ steps.gate.outputs.verdict }}
+  scan-id:
+    description: "The ASVP scan id."
+    value: ${{ steps.gate.outputs.scan_id }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: gate
+      shell: bash
+      env:
+        ASVP_URL: ${{ inputs.asvp-url }}
+        ASVP_TOKEN: ${{ inputs.token }}
+        ASVP_SERVICE: ${{ inputs.service }}
+        ASVP_ENVIRONMENT: ${{ inputs.environment }}
+        ASVP_PROFILE: ${{ inputs.profile }}
+        ASVP_MODE: ${{ inputs.mode }}
+        ASVP_CHANGED: ${{ inputs.changed-endpoints }}
+        ASVP_TARGET_OVERRIDE: ${{ inputs.target-url-override }}
+        ASVP_TIMEOUT: ${{ inputs.timeout-seconds }}
+        ASVP_COMMIT_SHA: ${{ github.sha }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: python "${{ github.action_path }}/asvp_gate.py"

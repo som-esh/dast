@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asvp"
+version = "0.1.0"
+description = "Enterprise API Security Validation Platform (ASVP)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "pydantic>=2",
+    "PyYAML",
+    "rich",
+    "defusedxml",  # safe parsing of Burp XML issue reports
+]
+
+# External scan engines are NOT pip dependencies — they are operator-provided
+# binaries/jars discovered at runtime via environment variables:
+#   ASVP_ZAP_PATH    path to zap.sh / zap.bat / zap   (OWASP ZAP)
+#   ASVP_NUCLEI_PATH path to the nuclei binary        (ProjectDiscovery Nuclei)
+#   ASVP_BURP_JAR    path to burpsuite_pro.jar        (Burp Suite, jar drop-in)
+#   ASVP_JAVA_PATH   JRE used to launch the Burp jar  (default: java)
+# When a path is unset the engine reports unavailable and is skipped — scans
+# never fail because a tool is missing.
+
+[project.scripts]
+asvp = "asvp.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["asvp*"]
+
+[tool.setuptools.package-data]
+asvp = ["checks/templates/*.yaml", "policy/policies/*.yaml"]

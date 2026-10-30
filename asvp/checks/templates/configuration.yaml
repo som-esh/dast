@@ -1,0 +1,71 @@
+# Configuration-quality domain (PRD §5.3) — API-boundary hygiene.
+- id: CFG-HDR-001
+  name: Security response headers
+  domain: configuration
+  default_severity: low
+  destructiveness: safe
+  executor: security_headers
+  description: >
+    Verifies HSTS, X-Content-Type-Options and a content-security posture on
+    API responses.
+  remediation: >
+    Set Strict-Transport-Security, X-Content-Type-Options: nosniff and
+    Cache-Control at the gateway for all API routes.
+  applies: { once_per_service: true }
+
+- id: CFG-CACHE-001
+  name: Cache-control on sensitive endpoints
+  domain: configuration
+  default_severity: medium
+  destructiveness: safe
+  executor: cache_control_sensitive
+  description: >
+    Sensitive-data responses must carry Cache-Control: no-store to prevent
+    intermediary/browser caching.
+  remediation: >
+    Add Cache-Control: no-store (and Pragma: no-cache) on endpoints serving
+    personal or payment data.
+  applies: { sensitive_only: true, methods: ["GET"] }
+
+- id: CFG-CORS-001
+  name: CORS policy strictness
+  domain: configuration
+  default_severity: medium
+  destructiveness: safe
+  executor: cors_strictness
+  description: >
+    Sends a cross-origin preflight from an untrusted origin; a wildcard or
+    reflected Access-Control-Allow-Origin (especially with credentials)
+    fails the check.
+  remediation: >
+    Allow-list exact trusted origins; never combine wildcard origins with
+    Access-Control-Allow-Credentials.
+  applies: { once_per_service: true }
+
+- id: CFG-ERR-001
+  name: Error-response hygiene
+  domain: configuration
+  default_severity: low
+  destructiveness: safe
+  executor: error_schema_hygiene
+  description: >
+    Error responses must use a consistent JSON error schema with no internal
+    hostnames or IP addresses.
+  remediation: >
+    Adopt the org error envelope (code, message, traceId); strip internals
+    in the global exception handler.
+  applies: { once_per_service: true }
+
+- id: CFG-LIM-001
+  name: Declared request-size limit honored
+  domain: configuration
+  default_severity: medium
+  destructiveness: mutating
+  executor: payload_size_limit
+  description: >
+    Sends an oversized request body; acceptance beyond the declared limit
+    indicates missing request-size enforcement.
+  remediation: >
+    Enforce max request size at the gateway and the framework body parser.
+  applies: { state_changing_only: true, requires_body: true }
+  params: { oversize_kb: 256 }

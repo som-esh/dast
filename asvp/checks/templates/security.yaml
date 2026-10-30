@@ -1,0 +1,179 @@
+# Security domain — OWASP API Security Top 10 aligned (PRD §5.1)
+- id: SEC-AUTH-001
+  name: Missing-token access on authenticated endpoint
+  domain: security
+  default_severity: critical
+  destructiveness: safe
+  executor: auth_missing_token
+  description: >
+    Replays the request with no Authorization material. An authenticated
+    endpoint that answers 2xx without credentials is broken authentication
+    (OWASP API2).
+  remediation: >
+    Enforce authentication middleware on every route; deny by default at the
+    gateway. Verify the route is covered by the gateway AuthorizationPolicy.
+  compliance_mappings: ["PCI-DSS-4.0:8.3", "PCI-DSS-4.0:7.2"]
+  applies: { }
+
+- id: SEC-AUTH-002
+  name: Forged/invalid token accepted
+  domain: security
+  default_severity: critical
+  destructiveness: safe
+  executor: auth_forged_token
+  description: >
+    Sends a syntactically valid but unsigned/garbage bearer token. Acceptance
+    indicates missing signature/audience validation (OWASP API2).
+  remediation: >
+    Validate token signature, issuer, audience and expiry on every request,
+    using the shared auth library — never hand-rolled parsing.
+  compliance_mappings: ["PCI-DSS-4.0:8.3"]
+  applies: { }
+
+- id: SEC-BOLA-001
+  name: Cross-identity object access (BOLA)
+  domain: security
+  default_severity: critical
+  destructiveness: safe
+  executor: bola_cross_identity
+  description: >
+    Requests an object owned by identity A using identity B's credentials.
+    A 2xx response is Broken Object Level Authorization (OWASP API1).
+  remediation: >
+    Enforce object-level ownership checks in the service layer for every
+    object reference; never trust client-supplied ids without an ownership
+    or ACL verification.
+  compliance_mappings: ["PCI-DSS-4.0:7.2", "GDPR:Art.32"]
+  applies: { requires_object_id_param: true, requires_identities: true }
+
+- id: SEC-BFLA-001
+  name: Function-level authorization bypass (BFLA)
+  domain: security
+  default_severity: high
+  destructiveness: safe
+  executor: bfla_role_matrix
+  description: >
+    Calls privileged (admin-tagged) endpoints with a non-privileged identity.
+    A 2xx response is Broken Function Level Authorization (OWASP API5).
+  remediation: >
+    Enforce a server-side role matrix on privileged routes; gateway-level
+    deny rules for admin path prefixes from non-admin audiences.
+  compliance_mappings: ["PCI-DSS-4.0:7.2"]
+  applies: { requires_identities: true }
+
+- id: SEC-PROP-001
+  name: Mass assignment of privileged properties
+  domain: security
+  default_severity: high
+  destructiveness: mutating
+  executor: mass_assignment
+  description: >
+    Adds privileged properties (is_admin, role, balance, verified) to a write
+    request body. Echoed/persisted values indicate Broken Object Property
+    Level Authorization (OWASP API3).
+  remediation: >
+    Bind request bodies to explicit allow-list DTOs; never bind directly to
+    persistence models.
+  applies: { state_changing_only: true, requires_body: true }
+
+- id: SEC-DATA-001
+  name: Excessive data exposure in responses
+  domain: security
+  default_severity: high
+  destructiveness: safe
+  executor: excessive_data_exposure
+  description: >
+    Inspects responses for fields beyond the documented contract that match
+    sensitive-data patterns (password hashes, tokens, internal flags, PII).
+  remediation: >
+    Return explicit response DTOs with only contract fields; add a
+    serialization deny-list test for sensitive properties.
+  compliance_mappings: ["GDPR:Art.5(1)(c)"]
+  applies: { methods: ["GET"] }
+
+- id: SEC-RATE-001
+  name: Missing rate limiting
+  domain: security
+  default_severity: medium
+  destructiveness: aggressive
+  executor: rate_limit_probe
+  description: >
+    Sends a short burst of requests; absence of any 429/throttle response
+    indicates Unrestricted Resource Consumption (OWASP API4).
+  remediation: >
+    Apply per-identity and per-IP rate limits at the gateway; return 429
+    with Retry-After.
+  applies: { }
+  params: { burst: 15 }
+
+- id: SEC-SSRF-001
+  name: Server-side request forgery probe
+  domain: security
+  default_severity: high
+  destructiveness: mutating
+  executor: ssrf_probe
+  description: >
+    Supplies internal-address payloads (169.254.169.254, localhost) to
+    URL-accepting parameters and observes fetch behavior (OWASP API7).
+  remediation: >
+    Validate and allow-list outbound fetch destinations server-side; resolve
+    and block link-local/private ranges before fetching.
+  applies: { requires_url_param: true }
+
+- id: SEC-INJ-001
+  name: Injection probe on input vectors
+  domain: security
+  default_severity: high
+  destructiveness: mutating
+  executor: injection_probe
+  description: >
+    Sends SQL/NoSQL/command metacharacter payloads to identified input
+    vectors and detects database errors or evaluated output (OWASP API8 via
+    classic injection classes).
+  remediation: >
+    Use parameterized queries / prepared statements everywhere; reject
+    unexpected metacharacters at the validation layer.
+  compliance_mappings: ["PCI-DSS-4.0:6.2.4"]
+  applies: { }
+
+- id: SEC-MISC-001
+  name: Verbose error / stack trace disclosure
+  domain: security
+  default_severity: medium
+  destructiveness: safe
+  executor: verbose_errors
+  description: >
+    Triggers an error (malformed input) and inspects the response for stack
+    traces, framework banners, file paths, or internal hostnames.
+  remediation: >
+    Install a global exception handler returning a consistent, minimal error
+    schema; log details server-side only.
+  applies: { }
+
+- id: SEC-INV-001
+  name: Deprecated API version still live
+  domain: security
+  default_severity: medium
+  destructiveness: safe
+  executor: deprecated_version_live
+  description: >
+    Endpoints marked deprecated (or under a retired version prefix) that
+    still respond indicate improper inventory management (OWASP API9).
+  remediation: >
+    Decommission retired versions at the gateway; return 410 Gone and remove
+    routes from the service.
+  applies: { deprecated_only: true }
+
+- id: SEC-MISC-002
+  name: Debug/management endpoint exposed
+  domain: security
+  default_severity: high
+  destructiveness: safe
+  executor: debug_endpoint_probe
+  description: >
+    Probes well-known debug/management paths (/debug, /actuator, /metrics,
+    /env) on the service origin.
+  remediation: >
+    Remove or gateway-block debug endpoints in non-local environments; bind
+    management ports to localhost only.
+  applies: { once_per_service: true }
